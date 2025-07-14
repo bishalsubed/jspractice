@@ -29,7 +29,7 @@ class InMemoryCache {
     set(key, value, ttl) {
         if (!this.head) {
             let newValue = new Node(key, value, ttl)
-            this.map.set(key, value)
+            this.map.set(key, newValue)
             this.head = newValue;
             this.tail = newValue;
             return
@@ -38,22 +38,27 @@ class InMemoryCache {
         if (tillNow.key === key) {
             tillNow.value = value;
             tillNow.ttl = ttl;
+            let key = this.map.get(key)
+            key.value = value;
+            key.ttl = ttl;
+            key.prev = null;
+            key.next = null
+            return
         }
         while (tillNow.next) {
             tillNow = tillNow.next;
             if (tillNow.key === key) {
                 tillNow.value = value;
                 tillNow.ttl = ttl;
-                this.head.prev = tillNow;
-                this.head = tillNow;
-                this.head.prev = null;
+                this.moveToHead(tillNow);
+                return
             }
         }
         if (this.map.size >= this.capacity) {
             this.removeLastNode()
         }
         let newValue = new Node(key, value, ttl)
-        this.map.set(key, value)
+        this.map.set(key, newValue);
         newValue.next = this.head;
         this.head.prev = newValue
         this.head = newValue;
@@ -69,10 +74,11 @@ class InMemoryCache {
         if (!this.map.has(key)) return;
         let current = this.head
         if (current.key === key) {
-            if(!current.next){
+            if (!current.next) {
                 current.key = null;
                 current.value = null;
                 current.ttl = null;
+                this.map.delete(key);
                 return
             }
             current.next.prev = null;
@@ -114,6 +120,24 @@ class InMemoryCache {
         }
     }
 
+    moveToHead(node) {
+        if (!this.head) {
+            this.head = node
+            this.tail = node;
+        }
+        if (this.head === node) return;
+        if (node.next) {
+            node.prev.next = node.next;
+            node.next.prev = node.prev;
+        } else {
+            this.tail = node.prev
+        }
+        this.head.prev = node;
+        node.next = this.head;
+        node.prev = null;
+        this.head = node;
+    }
+
     // internal: moveToHead(node), removeNode(node), etc.
 }
 
@@ -121,6 +145,5 @@ const cache = new InMemoryCache(3);
 cache.set('a', 1, 1000);
 cache.set('b', 2, 1000);
 cache.set('c', 3, 1000);
-cache.delete('a')
 cache.delete('c')
 cache.printList();
