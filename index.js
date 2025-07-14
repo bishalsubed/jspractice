@@ -123,5 +123,4 @@ cache.set('b', 2, 1000);
 cache.set('c', 3, 1000);
 cache.delete('a')
 cache.delete('c')
-cache.delete('b')
 cache.printList();
