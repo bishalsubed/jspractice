@@ -78,7 +78,7 @@ class InMemoryCache {
     }
 
     clear() {
-        // optional: reset the whole cache
+        
     }
 
     printList() {
