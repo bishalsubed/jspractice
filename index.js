@@ -20,8 +20,10 @@ class InMemoryCache {
         // maybe a timer or interval for TTL cleanup
     }
     get(key) {
-        if (!this.map.has(key)) return;
-
+        if (!this.map.has(key)) return null;
+        let existingNode = this.map.get(key)
+        this.moveToHead(existingNode)
+        return existingNode;
         // check if key exists
         // check TTL
         // update LRU order
@@ -37,7 +39,7 @@ class InMemoryCache {
             return
         }
         let existingNode = this.map.get(key)
-        if(existingNode){
+        if (existingNode) {
             existingNode.value = value;
             existingNode.ttl = value;
             this.moveToHead(existingNode)
