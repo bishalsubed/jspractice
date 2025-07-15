@@ -36,30 +36,12 @@ class InMemoryCache {
             this.tail = newValue;
             return
         }
-        let tillNow = this.head
-        if (tillNow.key === key) {
-            tillNow.value = value;
-            tillNow.ttl = ttl;
-            let key = this.map.get(key)
-            key.value = value;
-            key.ttl = ttl;
-            key.prev = null;
-            key.next = null;
-            return
-        }
-        while (tillNow.next) {
-            tillNow = tillNow.next;
-            if (tillNow.key === key) {
-                tillNow.value = value;
-                tillNow.ttl = ttl;
-                this.moveToHead(tillNow);
-                let key = this.map.get(key)
-                key.value = value;
-                key.ttl = ttl;
-                key.prev = null;
-                key.next = null
-                return
-            }
+        let existingNode = this.map.get(key)
+        if(existingNode){
+            existingNode.value = value;
+            existingNode.ttl = value;
+            this.moveToHead(existingNode)
+            return;
         }
         if (this.map.size >= this.capacity) {
             this.removeNode(this.tail);
