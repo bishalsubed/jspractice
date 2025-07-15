@@ -23,7 +23,7 @@ class InMemoryCache {
         if (!this.map.has(key)) return null;
         let existingNode = this.map.get(key)
         this.moveToHead(existingNode)
-        return existingNode;
+        return existingNode.value;
         // check if key exists
         // check TTL
         // update LRU order
@@ -63,18 +63,8 @@ class InMemoryCache {
 
     delete(key) {
         if (!this.map.has(key)) return;
-        let current = this.head
-        if (current.key === key) {
-            this.removeNode(current)
-            return;
-        }
-        while (current.next) {
-            current = current.next
-            if (current.key === key) {
-                this.removeNode(current);
-                return;
-            }
-        }
+        let existingNode = this.map.get(key);
+        this.removeNode(existingNode);
     }
 
     clear() {
