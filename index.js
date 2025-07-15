@@ -20,6 +20,8 @@ class InMemoryCache {
         // maybe a timer or interval for TTL cleanup
     }
     get(key) {
+        if (!this.map.has(key)) return;
+
         // check if key exists
         // check TTL
         // update LRU order
@@ -42,7 +44,7 @@ class InMemoryCache {
             key.value = value;
             key.ttl = ttl;
             key.prev = null;
-            key.next = null
+            key.next = null;
             return
         }
         while (tillNow.next) {
@@ -51,11 +53,16 @@ class InMemoryCache {
                 tillNow.value = value;
                 tillNow.ttl = ttl;
                 this.moveToHead(tillNow);
+                let key = this.map.get(key)
+                key.value = value;
+                key.ttl = ttl;
+                key.prev = null;
+                key.next = null
                 return
             }
         }
         if (this.map.size >= this.capacity) {
-            this.removeLastNode()
+            this.removeNode(this.tail);
         }
         let newValue = new Node(key, value, ttl)
         this.map.set(key, newValue);
@@ -74,27 +81,16 @@ class InMemoryCache {
         if (!this.map.has(key)) return;
         let current = this.head
         if (current.key === key) {
-            if (!current.next) {
-                current.key = null;
-                current.value = null;
-                current.ttl = null;
-                this.map.delete(key);
-                return
-            }
-            current.next.prev = null;
-            this.head = current.next
-            this.map.delete(key);
+            this.removeNode(current)
             return;
         }
         while (current.next) {
             current = current.next
             if (current.key === key) {
-                current.prev.next = null
-                current = current.prev
-                return
+                this.removeNode(current);
+                return;
             }
         }
-        this.map.delete(key);
     }
 
     clear() {
@@ -109,15 +105,6 @@ class InMemoryCache {
             current = current.next
         }
         console.log(result + 'null')
-    }
-
-    removeLastNode() {
-        if (!this.tail) return;
-        if (this.tail.prev) {
-            this.tail.prev.next = null;
-            this.map.delete(this.tail.key)
-            this.tail = this.tail.prev
-        }
     }
 
     moveToHead(node) {
@@ -136,6 +123,30 @@ class InMemoryCache {
         node.next = this.head;
         node.prev = null;
         this.head = node;
+    }
+
+    removeNode(node) {
+        if (!node || this.map.size === 0) return;
+        if (this.map.size === 1) {
+            this.head = null;
+            this.tail = null;
+            this.map.delete(node.key)
+        } else {
+            if (this.head == node) {
+                node.next.prev = null;
+                this.head = node.next;
+                this.map.delete(node.key)
+            } else if (this.tail == node) {
+                this.tail.prev.next = null;
+                this.tail = this.tail.prev
+                this.map.delete(this.tail.key)
+            }
+            else {
+                node.next.prev = node.prev;
+                node.prev.next = node.next;
+                this.map.delete(node.key)
+            }
+        }
     }
 
     // internal: moveToHead(node), removeNode(node), etc.
