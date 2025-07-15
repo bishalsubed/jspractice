@@ -78,7 +78,9 @@ class InMemoryCache {
     }
 
     clear() {
-        
+        this.head = null;
+        this.tail = null;
+        this.map.clear();
     }
 
     printList() {
@@ -132,8 +134,6 @@ class InMemoryCache {
             }
         }
     }
-
-    // internal: moveToHead(node), removeNode(node), etc.
 }
 
 const cache = new InMemoryCache(3);
