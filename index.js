@@ -41,7 +41,7 @@ class InMemoryCache {
         let existingNode = this.map.get(key)
         if (existingNode) {
             existingNode.value = value;
-            existingNode.ttl = value;
+            existingNode.ttl = ttl;
             this.moveToHead(existingNode)
             return;
         }
@@ -124,8 +124,8 @@ class InMemoryCache {
                 this.map.delete(node.key)
             } else if (this.tail == node) {
                 this.tail.prev.next = null;
-                this.tail = this.tail.prev
                 this.map.delete(this.tail.key)
+                this.tail = this.tail.prev
             }
             else {
                 node.next.prev = node.prev;
