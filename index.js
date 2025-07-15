@@ -20,6 +20,7 @@ class InMemoryCache {
         // maybe a timer or interval for TTL cleanup
     }
     get(key) {
+        if(!key) return null;
         if (!this.map.has(key)) return null;
         let existingNode = this.map.get(key)
         this.moveToHead(existingNode)
@@ -31,6 +32,7 @@ class InMemoryCache {
     }
 
     set(key, value, ttl) {
+        if( key == null|| ttl == null) return null;
         if (!this.head) {
             let newValue = new Node(key, value, ttl)
             this.map.set(key, newValue)
@@ -62,6 +64,7 @@ class InMemoryCache {
     }
 
     delete(key) {
+        if(!key) return null;
         if (!this.map.has(key)) return;
         let existingNode = this.map.get(key);
         this.removeNode(existingNode);
@@ -84,14 +87,11 @@ class InMemoryCache {
     }
 
     moveToHead(node) {
-        if (!this.head) {
-            this.head = node
-            this.tail = node;
-        }
+        if(!node || this.map.size === 0) return null;
         if (this.head === node) return;
         if (node.next) {
-            node.prev.next = node.next;
-            node.next.prev = node.prev;
+            if (node.prev) node.prev.next = node.next;
+            if (node.next) node.next.prev = node.prev;
         } else {
             this.tail = node.prev
         }
@@ -102,7 +102,7 @@ class InMemoryCache {
     }
 
     removeNode(node) {
-        if (!node || this.map.size === 0) return;
+        if (!node || this.map.size === 0) return null;
         if (this.map.size === 1) {
             this.head = null;
             this.tail = null;
@@ -113,9 +113,9 @@ class InMemoryCache {
                 this.head = node.next;
                 this.map.delete(node.key)
             } else if (this.tail == node) {
-                this.tail.prev.next = null;
-                this.map.delete(this.tail.key)
-                this.tail = this.tail.prev
+                node.prev.next = null;
+                this.map.delete(node.key)
+                this.tail = node.prev
             }
             else {
                 node.next.prev = node.prev;
