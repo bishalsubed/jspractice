@@ -2,7 +2,7 @@ class Node {
     constructor(key, value, ttl) {
         this.key = key;
         this.value = value;
-        this.ttl = ttl
+        this.ttl = Date.now() + ttl * 1000;
         this.next = null;
         this.prev = null;
     }
@@ -20,9 +20,13 @@ class InMemoryCache {
         // maybe a timer or interval for TTL cleanup
     }
     get(key) {
-        if(!key) return null;
+        if (!key) return null;
         if (!this.map.has(key)) return null;
-        let existingNode = this.map.get(key)
+        let existingNode = this.map.get(key);
+        if (existingNode.ttl < Date.now()) {
+            this.removeNode(existingNode)
+            return null;
+        }
         this.moveToHead(existingNode)
         return existingNode.value;
         // check if key exists
@@ -32,7 +36,7 @@ class InMemoryCache {
     }
 
     set(key, value, ttl) {
-        if( key == null|| ttl == null) return null;
+        if (key == null || ttl == null) return null;
         if (!this.head) {
             let newValue = new Node(key, value, ttl)
             this.map.set(key, newValue)
@@ -43,9 +47,14 @@ class InMemoryCache {
         let existingNode = this.map.get(key)
         if (existingNode) {
             existingNode.value = value;
-            existingNode.ttl = ttl;
+            existingNode.ttl = Date.now() + ttl * 1000;
             this.moveToHead(existingNode)
             return;
+        }
+        for (let [key, node] of this.map.entries()) {
+            if (node.ttl < Date.now()) {
+                this.removeNode(node);
+            }
         }
         if (this.map.size >= this.capacity) {
             this.removeNode(this.tail);
@@ -64,7 +73,7 @@ class InMemoryCache {
     }
 
     delete(key) {
-        if(!key) return null;
+        if (!key) return null;
         if (!this.map.has(key)) return;
         let existingNode = this.map.get(key);
         this.removeNode(existingNode);
@@ -87,7 +96,7 @@ class InMemoryCache {
     }
 
     moveToHead(node) {
-        if(!node || this.map.size === 0) return null;
+        if (!node || this.map.size === 0) return null;
         if (this.head === node) return;
         if (node.next) {
             if (node.prev) node.prev.next = node.next;
@@ -127,8 +136,10 @@ class InMemoryCache {
 }
 
 const cache = new InMemoryCache(3);
-cache.set('a', 1, 1000);
-cache.set('b', 2, 1000);
-cache.set('c', 3, 1000);
-cache.delete('c')
+cache.set('a', 1, 0.001);
+cache.set("b", 5, 3)
+cache.set('c', 3, 3);
+cache.printList();
+cache.get('a');
+cache.set('d', 4, 2);
 cache.printList();
