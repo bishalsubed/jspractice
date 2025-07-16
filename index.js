@@ -13,11 +13,6 @@ class InMemoryCache {
         this.head = null;
         this.tail = null;
         this.map = new Map();
-
-        // capacity limit
-        // store key-node map
-        // track head/tail of LRU linked list
-        // maybe a timer or interval for TTL cleanup
     }
     get(key) {
         if (!key) return null;
@@ -29,10 +24,6 @@ class InMemoryCache {
         }
         this.moveToHead(existingNode)
         return existingNode.value;
-        // check if key exists
-        // check TTL
-        // update LRU order
-        // return value or null
     }
 
     set(key, value, ttl) {
@@ -64,12 +55,6 @@ class InMemoryCache {
         newValue.next = this.head;
         this.head.prev = newValue
         this.head = newValue;
-
-
-        // if key exists, update value and TTL
-        // else if at capacity, evict LRU
-        // add new key with TTL
-        // move to head of usage list
     }
 
     delete(key) {
