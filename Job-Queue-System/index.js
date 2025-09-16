@@ -137,29 +137,34 @@ class DelayQueue {
 class JobQueue {
     constructor() {
 
-        // Queue for jobs ready to be processed immediately
         this.readyQueue = new ReadyQueue()
 
-        // Jobs scheduled with delay; will be promoted to readyQueue later
         this.delayedQueue = new DelayQueue();
 
         // Tracks jobs currently being processed (for ack + timeout logic)
         this.inProgressJobs = new Map();
 
-        // Stores jobs that failed too many times
         this.deadLetterQueue = [];
 
     }
 
-    // Called to add a job to the system (immediate or delayed)
-    enqueue(id, payload, delay, attempts) {
-        let job = new Job()
-        // Decide if it goes to readyQueue or delayedQueue based on job.delay
+    enqueue(id, payload, delay=0, attempts=1) {
+        let job = new Job(id, payload, delay, attempts)
+        if(job.executeAt <= Date.now()){
+            this.readyQueue.enqueue(job)
+        }else{
+            this.delayedQueue.enqueue(job)
+        }
     }
 
-    // Called by a worker to fetch a job that’s ready to be processed
     poll() {
-        // Return next eligible job from readyQueue and track it in inProgress
+        let nextReadyJob = this.delayedQueue.dequeueIfReady(Date.now());
+        if(!nextReadyJob || nextReadyJob === null) {console.log("None ready jobs found")}
+        else{this.readyQueue.enqueue(nextReadyJob);}
+        let assignedJob = this.readyQueue.dequeue();
+        if(!assignedJob || assignedJob === null) {console.log("None jobs found")}
+        else{this.inProgressJobs.set(assignedJob.id, assignedJob)}
+        return assignedJob
     }
 
     // Called by a worker after job is successfully processed
@@ -191,27 +196,3 @@ class JobQueue {
 export default JobQueue;
 
 
-
-
-
-// const rq = new ReadyQueue();
-
-// rq.enqueue({ id: 1, payload: 'first job' });
-// rq.enqueue({ id: 2, payload: 'second job' });
-// rq.enqueue({ id: 3, payload: 'third job' });
-
-// console.log('Queue after 3 enqueues:');
-// rq.print();
-
-// const job1 = rq.dequeue();
-// console.log('Dequeued:', job1);
-
-// console.log('Queue now:');
-// rq.print();
-
-// console.log('Peek:', rq.peek());
-// console.log('Is empty?', rq.isEmpty());
-
-// rq.dequeue();
-// rq.dequeue();
-// console.log('Is empty after removing all?', rq.isEmpty()); 
