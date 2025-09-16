@@ -104,7 +104,7 @@ class DelayQueue {
             if (leftChildIndex >= this.heap.length) break;
             if (leftChildIndex >= this.heap.length && rightChildIndex >= this.heap.length) break;
 
-            let smallerNodeIndex = leftChildIndex; 
+            let smallerNodeIndex = leftChildIndex;
             if (
                 rightChildIndex < this.heap.length &&
                 this.heap[rightChildIndex].executeAt < this.heap[leftChildIndex].executeAt
@@ -146,25 +146,41 @@ class JobQueue {
 
         this.deadLetterQueue = [];
 
+        this.isPolling = false;
+        this._pendingPolls = [];
     }
 
-    enqueue(id, payload, delay=0, attempts=1) {
+    enqueue(id, payload, delay = 0, attempts = 1) {
         let job = new Job(id, payload, delay, attempts)
-        if(job.executeAt <= Date.now()){
+        if (job.executeAt <= Date.now()) {
             this.readyQueue.enqueue(job)
-        }else{
+        } else {
             this.delayedQueue.enqueue(job)
         }
     }
 
-    poll() {
-        let nextReadyJob = this.delayedQueue.dequeueIfReady(Date.now());
-        if(!nextReadyJob || nextReadyJob === null) {console.log("None ready jobs found")}
-        else{this.readyQueue.enqueue(nextReadyJob);}
-        let assignedJob = this.readyQueue.dequeue();
-        if(!assignedJob || assignedJob === null) {console.log("None jobs found")}
-        else{this.inProgressJobs.set(assignedJob.id, assignedJob)}
-        return assignedJob
+    async poll() {
+        return new Promise((resolve, reject) => {
+            if(this.isPolling){
+                this._pendingPolls.push({resolve, reject});
+                return;
+            }
+            this.isPolling = true
+            let nextReadyJob = this.delayedQueue.dequeueIfReady(Date.now());
+            if (nextReadyJob) this.readyQueue.enqueue(nextReadyJob);
+
+            let assignedJob = this.readyQueue.dequeue();
+            if (assignedJob) { this.inProgressJobs.set(assignedJob.id, assignedJob) }
+        
+            this.isPolling = false;
+            
+            if(this._pendingPolls.length > 0){
+                const nextWorker = this._pendingPolls.shift()
+                this.poll().then(nextWorker.resolve).catch(nextWorker.reject)
+            }
+            if(assignedJob){resolve(assignedJob)}
+            else reject(null)
+        })
     }
 
     // Called by a worker after job is successfully processed
