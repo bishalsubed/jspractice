@@ -232,14 +232,19 @@ class JobQueue {
         return existedJob;
     }
 
-    // Internal: Promote delayed jobs to readyQueue when delay expires
     _promoteDelayedJobs() {
-        // Runs periodically or uses setTimeout per job
+        let intervalId = setInterval(() => {
+            while (this.delayedQueue.peek() != null && this.delayedQueue.peek().executeAt <= Date.now()) {
+                let obtainedJob = this.delayedQueue.dequeueIfReady(Date.now())
+                this.readyQueue.enqueue(obtainedJob)
+            }
+        }, 500);
     }
 
-    // Internal: Check inProgress jobs for timeout and trigger retries
     _cleanup() {
-        // Detect stuck jobs and reroute them via _retry
+        let intervalId = setInterval(() => {
+            
+        }, 5000);
     }
 }
 
