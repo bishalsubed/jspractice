@@ -3,7 +3,8 @@ class Job {
         this.id = id;
         this.payload = payload;
         this.executeAt = Date.now() + delay;
-        this.attempts = attempts
+        this.retryAttempts = attempts
+        this.usedAttempts = 0;
     }
 }
 class ReadyQueueNode {
@@ -174,9 +175,9 @@ class JobQueue {
             if (assignedJob) {
                 this.inProgressJobs.set(assignedJob.id, {
                     assignedJob,
-                    timeOutId: setTimeout(()=>{
+                    timeOutId: setTimeout(() => {
                         console.log("Job assigned")
-                    },2 * 1000)
+                    }, 2 * 1000)
                 })
             }
 
@@ -194,16 +195,33 @@ class JobQueue {
 
     ack(jobId) {
         let existingJob = this.inProgressJobs.get(jobId)
-        if(!existingJob) return null;
+        if (!existingJob) return null;
         clearTimeout(existingJob.timeOutId)
         this.inProgressJobs.delete(jobId)
         this.completedLetterQueue.push(existingJob.assignedJob);
         return existingJob.assignedJob
     }
 
-    // Internal: Retry job with exponential backoff if it wasn't acked in time
     _retry(job) {
-        // Increment attempts, calculate delay, re-enqueue or dead-letter
+        let existedJob = this.inProgressJobs.get(job.id)
+        if (!existedJob) return null;
+        if (existedJob.assignedJob.usedAttempts > existedJob.assignedJob.retryAttempts) {
+            clearTimeout(existedJob.timeOutId)
+            this.inProgressJobs.delete(job.id)
+            this.deadLetterQueue.push(existedJob.assignedJob)
+            return existedJob;
+        }
+        clearTimeout(existedJob.timeOutId)
+        this.inProgressJobs.delete(job.id)
+        let exponentialTimer = 100;
+        let basedelay = 100;
+        if(existedJob.assignedJob.usedAttempts == 0) exponentialTimer = 1000;
+        else if(existedJob.assignedJob.usedAttempts == 1) exponentialTimer = 2000;
+        else exponentialTimer = Math.pow(2,existedJob.assignedJob.usedAttempts) * basedelay;
+        setTimeout(() => {
+            existedJob.assignedJob.usedAttempts += 1;
+            this.readyQueue.enqueue(existedJob.assignedJob);
+        }, exponentialTimer)
     }
 
     // Internal: Move job to dead-letter queue after max retries
