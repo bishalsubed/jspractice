@@ -141,10 +141,11 @@ class JobQueue {
 
         this.delayedQueue = new DelayQueue();
 
-        // Tracks jobs currently being processed (for ack + timeout logic)
         this.inProgressJobs = new Map();
 
         this.deadLetterQueue = [];
+
+        this.completedLetterQueue = [];
 
         this.isPolling = false;
         this._pendingPolls = [];
@@ -161,8 +162,8 @@ class JobQueue {
 
     async poll() {
         return new Promise((resolve, reject) => {
-            if(this.isPolling){
-                this._pendingPolls.push({resolve, reject});
+            if (this.isPolling) {
+                this._pendingPolls.push({ resolve, reject });
                 return;
             }
             this.isPolling = true
@@ -170,22 +171,34 @@ class JobQueue {
             if (nextReadyJob) this.readyQueue.enqueue(nextReadyJob);
 
             let assignedJob = this.readyQueue.dequeue();
-            if (assignedJob) { this.inProgressJobs.set(assignedJob.id, assignedJob) }
-        
+            if (assignedJob) {
+                this.inProgressJobs.set(assignedJob.id, {
+                    assignedJob,
+                    timeOutId: setTimeout(()=>{
+                        console.log("Job assigned")
+                    },2 * 1000)
+                })
+            }
+
             this.isPolling = false;
-            
-            if(this._pendingPolls.length > 0){
+
+            if (this._pendingPolls.length > 0) {
                 const nextWorker = this._pendingPolls.shift()
                 this.poll().then(nextWorker.resolve).catch(nextWorker.reject)
             }
-            if(assignedJob){resolve(assignedJob)}
+            if (assignedJob) { resolve(assignedJob) }
             else reject(null)
         })
     }
 
-    // Called by a worker after job is successfully processed
+
     ack(jobId) {
-        // Remove job from inProgressJobs and clear timeout logic
+        let existingJob = this.inProgressJobs.get(jobId)
+        if(!existingJob) return null;
+        clearTimeout(existingJob.timeOutId)
+        this.inProgressJobs.delete(jobId)
+        this.completedLetterQueue.push(existingJob.assignedJob);
+        return existingJob.assignedJob
     }
 
     // Internal: Retry job with exponential backoff if it wasn't acked in time
