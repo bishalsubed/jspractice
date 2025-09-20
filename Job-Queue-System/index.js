@@ -205,28 +205,31 @@ class JobQueue {
     _retry(job) {
         let existedJob = this.inProgressJobs.get(job.id)
         if (!existedJob) return null;
-        if (existedJob.assignedJob.usedAttempts > existedJob.assignedJob.retryAttempts) {
-            clearTimeout(existedJob.timeOutId)
-            this.inProgressJobs.delete(job.id)
-            this.deadLetterQueue.push(existedJob.assignedJob)
-            return existedJob;
+        if (existedJob.assignedJob.usedAttempts >= existedJob.assignedJob.retryAttempts) {
+            this._moveToDeadLetter(job)
+            return;
         }
         clearTimeout(existedJob.timeOutId)
         this.inProgressJobs.delete(job.id)
+        existedJob.assignedJob.usedAttempts += 1;
         let exponentialTimer = 100;
         let basedelay = 100;
-        if(existedJob.assignedJob.usedAttempts == 0) exponentialTimer = 1000;
-        else if(existedJob.assignedJob.usedAttempts == 1) exponentialTimer = 2000;
-        else exponentialTimer = Math.pow(2,existedJob.assignedJob.usedAttempts) * basedelay;
+        if (existedJob.assignedJob.usedAttempts == 1) exponentialTimer = 1000;
+        else if (existedJob.assignedJob.usedAttempts == 2) exponentialTimer = 2000;
+        else exponentialTimer = Math.pow(2, existedJob.assignedJob.usedAttempts) * basedelay;
         setTimeout(() => {
-            existedJob.assignedJob.usedAttempts += 1;
             this.readyQueue.enqueue(existedJob.assignedJob);
         }, exponentialTimer)
     }
 
-    // Internal: Move job to dead-letter queue after max retries
+
     _moveToDeadLetter(job) {
-        // Push job to deadLetterQueue and clean up
+        let existedJob = this.inProgressJobs.get(job.id)
+        if (!existedJob) return null;
+        clearTimeout(existedJob.timeOutId)
+        this.inProgressJobs.delete(job.id)
+        this.deadLetterQueue.push(existedJob.assignedJob)
+        return existedJob;
     }
 
     // Internal: Promote delayed jobs to readyQueue when delay expires
