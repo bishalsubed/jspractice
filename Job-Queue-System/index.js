@@ -150,6 +150,9 @@ class JobQueue {
 
         this.isPolling = false;
         this._pendingPolls = [];
+
+        this.cleanupIntervalId = null;
+        this.promoteDelayedJobsIntervalId = null;
     }
 
     enqueue(id, payload, delay = 0, attempts = 1) {
@@ -177,7 +180,8 @@ class JobQueue {
                     assignedJob,
                     timeOutId: setTimeout(() => {
                         console.log("Job assigned")
-                    }, 2 * 1000)
+                    }, 2 * 1000),
+                    expireAt: Date.now() + 2000
                 })
             }
 
@@ -212,14 +216,11 @@ class JobQueue {
         clearTimeout(existedJob.timeOutId)
         this.inProgressJobs.delete(job.id)
         existedJob.assignedJob.usedAttempts += 1;
-        let exponentialTimer = 100;
-        let basedelay = 100;
-        if (existedJob.assignedJob.usedAttempts == 1) exponentialTimer = 1000;
-        else if (existedJob.assignedJob.usedAttempts == 2) exponentialTimer = 2000;
-        else exponentialTimer = Math.pow(2, existedJob.assignedJob.usedAttempts) * basedelay;
+        const baseDelay = 1000;
+        const delay = baseDelay * Math.pow(2, existedJob.assignedJob.usedAttempts - 1);
         setTimeout(() => {
             this.readyQueue.enqueue(existedJob.assignedJob);
-        }, exponentialTimer)
+        }, delay)
     }
 
 
@@ -233,18 +234,40 @@ class JobQueue {
     }
 
     _promoteDelayedJobs() {
-        let intervalId = setInterval(() => {
-            while (this.delayedQueue.peek() != null && this.delayedQueue.peek().executeAt <= Date.now()) {
-                let obtainedJob = this.delayedQueue.dequeueIfReady(Date.now())
+        if (this.promoteDelayedJobsIntervalId) return null;
+        this.promoteDelayedJobsIntervalId = setInterval(() => {
+            const now = Date.now();
+            while (this.delayedQueue.peek() != null && this.delayedQueue.peek().executeAt <= now) {
+                let obtainedJob = this.delayedQueue.dequeueIfReady(now)
                 this.readyQueue.enqueue(obtainedJob)
             }
         }, 500);
     }
 
     _cleanup() {
-        let intervalId = setInterval(() => {
-            
+        this.cleanupIntervalId = setInterval(() => {
+            const now = Date.now();
+            this.inProgressJobs.forEach((value, key) => {
+                if (now >= value.expireAt) {
+                    this._retry(value.assignedJob);
+                }
+            })
         }, 5000);
+    }
+
+    start() {
+        this._promoteDelayedJobs();
+        this._cleanup();
+    }
+    stop() {
+        if (this.promoteDelayedJobsIntervalId) {
+            clearInterval(this.promoteDelayedJobsIntervalId);
+            this.promoteDelayedJobsIntervalId = null;
+        }
+        if (this.cleanupIntervalId) {
+            clearInterval(this.cleanupIntervalId);
+            this.cleanupIntervalId = null;
+        }
     }
 }
 
